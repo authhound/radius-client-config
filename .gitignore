@@ -1,5 +1,6 @@
-# Build artifacts (wasm/build.sh regenerates both)
-wasm/radius-client-config.wasm
-wasm/wasm_exec.js
+# The two wasm/ build artifacts (radius-client-config.wasm, wasm_exec.js)
+# are COMMITTED on purpose: the website consumes this repo as a submodule
+# and must not need a Go toolchain to serve them. Rebuild with wasm/build.sh
+# before tagging a release.
 /radius-client-config
 dist/

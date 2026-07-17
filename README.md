@@ -156,11 +156,18 @@ sha256sum -c checksums.txt --ignore-missing
 
 ## Related
 
+Prefer not to install anything? The same core, compiled to WASM, runs at
+[authhound.com/tools/radius-client-config](https://authhound.com/tools/radius-client-config/)
+— generation stays in your browser; nothing is uploaded.
+
 Registered the client but authentication still fails? Test the server from
 inside your network with
 [authhound-probe](https://github.com/authhound/probe) — registering a
-RADIUS client for the probe host is exactly what this tool generates. To
-work out *why* FreeRADIUS is ignoring a client, see the walkthrough at
+RADIUS client for the probe host is exactly what this tool generates. Got a
+failing log instead? Paste it into the free
+[RADIUS log analyzer](https://authhound.com/analyzer) for a plain-English
+diagnosis. To work out *why* FreeRADIUS is ignoring a client, see the
+walkthrough at
 [authhound.com/kb/freeradius-unknown-client](https://authhound.com/kb/freeradius-unknown-client/).
 
 ## License
