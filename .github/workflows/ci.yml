@@ -1,0 +1,53 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege by default; no job in this workflow needs write access.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: stable
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go build ./cmd/radius-client-config
+
+  # The browser build must never silently break; the size line in the log is
+  # the budget check (raw artifact — Cloudflare serves it compressed).
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: stable
+      - run: GOOS=js GOARCH=wasm go vet ./wasm
+      - run: ./wasm/build.sh
+      - name: Report compressed size
+        run: gzip -9 -c wasm/radius-client-config.wasm | wc -c
+
+  # Fails only on vulnerabilities REACHABLE from our code (call-graph
+  # analysis), so a red run here always means action is required.
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: golang/govulncheck-action@032d45514ae346b1db93c04b0c90b841c370344f # v1.1.0
+
+  # Second opinion on PRs that change the dependency manifest: flags newly
+  # introduced vulnerable versions (reachable or not) and license changes.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate

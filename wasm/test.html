@@ -1,0 +1,81 @@
+<!doctype html>
+<!-- Standalone test page for the WASM build. NOT the production page.
+     Serve this directory over HTTP (browsers refuse to fetch WASM from
+     file://), e.g.:  ./build.sh && python3 -m http.server -d . 8080
+     then open http://localhost:8080/test.html -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>radius-client-config WASM test page</title>
+  <style>
+    body { font: 14px/1.5 system-ui, sans-serif; max-width: 60rem; margin: 2rem auto; padding: 0 1rem; }
+    label { display: block; margin: .5rem 0 .1rem; }
+    input[type=text], input[type=number] { width: 24rem; max-width: 100%; }
+    pre { background: #f4f4f4; padding: .75rem; overflow-x: auto; white-space: pre-wrap; }
+    .err { color: #b00020; }
+  </style>
+</head>
+<body>
+  <h1>radius-client-config — WASM test page</h1>
+  <p>Everything runs in this tab. No network requests after the module loads
+     (verify in DevTools → Network).</p>
+
+  <label>Name <input type="text" id="name" value="probe01"></label>
+  <label>Address (IP or CIDR) <input type="text" id="address" value="10.0.4.20"></label>
+  <label>Secret (leave empty to generate) <input type="text" id="secret" value=""></label>
+  <label>Length <input type="number" id="length" value="32" min="16" max="128"></label>
+  <label>Charset
+    <select id="charset">
+      <option value="alnum-symbols">alnum-symbols</option>
+      <option value="alnum">alnum</option>
+    </select>
+  </label>
+  <label>nas_type <input type="text" id="nas_type" value=""></label>
+  <label><input type="checkbox" id="reqma" checked> require Message-Authenticator</label>
+  <label><input type="checkbox" id="coa"> CoA port note</label>
+  <p><button id="go" disabled>Generate</button></p>
+
+  <h2>FreeRADIUS</h2><pre id="fr"></pre>
+  <h2>Windows NPS</h2><pre id="nps"></pre>
+  <h2>Raw JSON result</h2><pre id="raw"></pre>
+
+  <script src="wasm_exec.js"></script>
+  <script>
+    // The core's crypto/rand is backed by this API under GOOS=js; fail loudly
+    // rather than let secret generation degrade silently.
+    if (!(globalThis.crypto && typeof globalThis.crypto.getRandomValues === "function")) {
+      document.body.innerHTML = "<p class='err'>This browser has no crypto.getRandomValues — refusing to generate secrets.</p>";
+      throw new Error("no CSPRNG");
+    }
+
+    const go = new Go();
+    WebAssembly.instantiateStreaming(fetch("radius-client-config.wasm"), go.importObject)
+      .then((r) => { go.run(r.instance); document.getElementById("go").disabled = false; })
+      .catch((e) => { document.getElementById("fr").textContent = "failed to load WASM: " + e; });
+
+    document.getElementById("go").addEventListener("click", () => {
+      const req = {
+        name: document.getElementById("name").value,
+        address: document.getElementById("address").value,
+        secret: document.getElementById("secret").value,
+        secret_length: parseInt(document.getElementById("length").value, 10),
+        secret_charset: document.getElementById("charset").value,
+        nas_type: document.getElementById("nas_type").value,
+        require_message_authenticator: document.getElementById("reqma").checked,
+        coa_note: document.getElementById("coa").checked,
+      };
+      const out = JSON.parse(generateClientConfig(JSON.stringify(req)));
+      if (!out.ok) {
+        document.getElementById("fr").innerHTML = "<span class='err'></span>";
+        document.getElementById("fr").firstChild.textContent = "error: " + out.error;
+        document.getElementById("nps").textContent = "";
+        document.getElementById("raw").textContent = "";
+        return;
+      }
+      document.getElementById("fr").textContent = out.result.freeradius;
+      document.getElementById("nps").textContent = out.result.nps;
+      document.getElementById("raw").textContent = JSON.stringify(out.result, null, 2);
+    });
+  </script>
+</body>
+</html>

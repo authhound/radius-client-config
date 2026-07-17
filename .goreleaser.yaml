@@ -1,0 +1,71 @@
+version: 2
+project_name: radius-client-config
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/radius-client-config
+    binary: radius-client-config
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  # Version-less names so the README's `releases/latest/download/<name>` links
+  # are stable across releases. Windows uses .zip via the override below.
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# One SPDX SBOM per release archive (syft, installed in the release
+# workflow). SBOMs are listed in checksums.txt, so the cosign signature
+# below covers them too.
+sboms:
+  - artifacts: archive
+
+# Keyless (Sigstore) signing of the checksums file. Because checksums.txt
+# lists the SHA256 of every archive, one verified signature over it
+# transitively authenticates every artifact.
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+release:
+  github:
+    owner: authhound
+    name: radius-client-config
+  prerelease: auto
+  mode: keep-existing
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"

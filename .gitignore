@@ -1,0 +1,5 @@
+# Build artifacts (wasm/build.sh regenerates both)
+wasm/radius-client-config.wasm
+wasm/wasm_exec.js
+/radius-client-config
+dist/
